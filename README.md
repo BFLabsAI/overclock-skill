@@ -1,124 +1,124 @@
 # Overclock
 
-**Multi-agent orchestration skill for Claude Code.** Overclock turns a single Claude session into a visible workspace grid where you can spawn panes, delegate work, run models in parallel, and coordinate specialist squads — all without leaving your coding environment.
+**Skill de orquestração multi-agente para o Claude Code.** O Overclock transforma uma sessão única do Claude num grid de painéis visíveis onde podes lançar agentes, delegar trabalho, executar modelos em paralelo e coordenar esquadrões especialistas — tudo sem sair do teu ambiente de desenvolvimento.
 
 ---
 
-## What is Overclock?
+## O que é o Overclock?
 
-Overclock is an IDE layer on top of Claude Code that exposes **7 MCP tools** for orchestrating multiple AI agents simultaneously. Each Claude session is a visible pane in a workspace grid. You can:
+O Overclock é uma camada de IDE sobre o Claude Code que expõe **7 ferramentas MCP** para orquestrar múltiplos agentes de IA em simultâneo. Cada sessão do Claude é um painel visível num grid de trabalho. Com ele podes:
 
-- **Spawn new panes** and send them independent tasks
-- **Run multiple models in parallel** (Claude, Gemini, Codex, MIMO)
-- **Coordinate named specialist squads** (brand, copy, cybersecurity, design, and more)
-- **Track multi-milestone projects** with a visible, real-time task list
+- **Lançar novos painéis** e enviar-lhes tarefas independentes
+- **Executar múltiplos modelos em paralelo** (Claude, Gemini, Codex, MIMO)
+- **Coordenar esquadrões especialistas** com nomes próprios (marca, copy, cibersegurança, design, e mais)
+- **Acompanhar projetos com múltiplos marcos** através de uma lista de tarefas visível em tempo real
 
-The key insight: if a task is parallelizable, blocks the current pane for more than 5 minutes, or benefits from different cognitive models on different subtasks — Overclock makes that orchestration explicit, visible, and controllable.
+A ideia central: se uma tarefa é paralelizável, vai bloquear o painel atual por mais de 5 minutos, ou beneficia de modelos cognitivos diferentes em subtarefas distintas — o Overclock torna essa orquestração explícita, visível e controlável.
 
 ---
 
-## Repository Structure
+## Estrutura do Repositório
 
 ```
 overclock/
-├── SKILL.md                   # Master skill file — decision tree and core patterns
+├── SKILL.md                   # Skill principal — árvore de decisão e padrões base
 └── references/
-    ├── tools.md               # Full API reference for all 7 Overclock tools
-    ├── recipes.md             # Worked end-to-end orchestration examples
-    ├── providers.md           # Provider/model selection guide with tradeoff matrix
-    └── squads.md              # 8 specialist agent squads and activation patterns
+    ├── tools.md               # Referência completa das 7 ferramentas do Overclock
+    ├── recipes.md             # Exemplos práticos de orquestração do início ao fim
+    ├── providers.md           # Guia de seleção de providers e modelos com matriz de trade-offs
+    └── squads.md              # 8 esquadrões especialistas e padrões de ativação
 ```
 
-`SKILL.md` is the entry point for Claude Code. The reference files are loaded on demand.
+`SKILL.md` é o ponto de entrada para o Claude Code. Os ficheiros de referência são carregados conforme necessário.
 
 ---
 
-## The 7 Tools
+## As 7 Ferramentas
 
-All tools are prefixed `mcp__overclock__` in the tool registry.
+Todas as ferramentas têm o prefixo `mcp__overclock__` no registo de ferramentas.
 
-| Tool | Purpose | When to call |
-|------|---------|--------------|
-| `pane_list` | Discover existing panes and their status | Before spawning — reuse idle panes when possible |
-| `pane_list_providers` | List configured LLM providers and their models | Before spawning with any non-default provider |
-| `pane_spawn` | Open a new pane in the workspace grid | When you have a parallelizable subtask |
-| `pane_write` | Send a prompt to a pane as if you typed it | After spawning (or to write to an existing pane) |
-| `pane_wait_idle` | Block until the target pane finishes | Always before reading — never read a running pane |
-| `pane_read` | Get the last N lines of a pane's output | After `pane_wait_idle` confirms the pane is done |
-| `todo_manager` | Create and update a visible, real-time task list | Projects with 3 or more distinct milestone-level tasks |
+| Ferramenta | Propósito | Quando usar |
+|------------|-----------|-------------|
+| `pane_list` | Descobrir painéis existentes e o seu estado | Antes de lançar — reutiliza painéis inativos sempre que possível |
+| `pane_list_providers` | Listar providers de LLM configurados e os seus modelos | Antes de lançar qualquer painel com provider não predefinido |
+| `pane_spawn` | Abrir um novo painel no grid de trabalho | Quando tens uma subtarefa paralelizável |
+| `pane_write` | Enviar um prompt para um painel como se o tivesses digitado | Após lançar (ou para escrever num painel existente) |
+| `pane_wait_idle` | Bloquear até o painel terminar | Sempre antes de ler — nunca leias um painel a correr |
+| `pane_read` | Obter as últimas N linhas do output de um painel | Após `pane_wait_idle` confirmar que o painel terminou |
+| `todo_manager` | Criar e atualizar uma lista de tarefas visível em tempo real | Projetos com 3 ou mais marcos distintos a nível de milestone |
 
-Full signatures, return shapes, and edge cases are documented in [`references/tools.md`](references/tools.md).
-
----
-
-## Core Decision: When to Orchestrate
-
-Most requests don't need orchestration. Default to handling things inline. Reach for Overclock tools only when the task meets one of these criteria:
-
-```
-Is the work parallelizable?           → spawn panes
-Does it need a different model?        → spawn pane with that model
-Does it have 3+ distinct milestones?   → todo_manager
-Will it block this pane for >5 min?    → spawn pane, return to user immediately
-Does the user say "in parallel"?       → spawn panes, no further deliberation
-None of the above?                     → just do the task inline
-```
-
-Spawning a pane costs ~5–10s of setup time, and the sub-pane has zero memory of the current conversation. If a task takes 2 minutes inline, delegating is slower.
+Assinaturas completas, formatos de retorno e casos limite estão documentados em [`references/tools.md`](references/tools.md).
 
 ---
 
-## The Three Core Patterns
+## Decisão Central: Quando Orquestrar
 
-### Pattern A: Delegate to the Worker Pane
-
-Every orchestrator session has a pre-assigned worker pane. Its ID appears in the system prompt under `squadOrchestratorWorkerId`. Use it for execution work that would block the orchestrator.
+A maioria dos pedidos não precisa de orquestração. Por defeito, resolve tudo inline. Só recorre às ferramentas do Overclock quando a tarefa satisfaz um destes critérios:
 
 ```
-pane_write(paneId: <worker-id>, text: "<self-contained task brief>")
+O trabalho é paralelizável?                  → lança painéis
+Precisa de um modelo diferente?              → lança painel com esse modelo
+Tem 3+ marcos distintos?                     → todo_manager
+Vai bloquear este painel por mais de 5 min?  → lança painel, devolve controlo ao utilizador
+O utilizador disse "em paralelo"?            → lança painéis, sem mais deliberação
+Nenhuma das anteriores?                      → faz a tarefa inline
+```
+
+Lançar um painel custa ~5–10s de tempo de arranque, e o subpainel não tem memória da conversa atual. Se uma tarefa demora 2 minutos inline, delegar é mais lento.
+
+---
+
+## Os Três Padrões Principais
+
+### Padrão A: Delegar ao Painel de Trabalho
+
+Cada sessão de orquestrador tem um painel de trabalho pré-atribuído. O seu ID aparece no system prompt em `squadOrchestratorWorkerId`. Usa-o para trabalho de execução que bloquearia o orquestrador.
+
+```
+pane_write(paneId: <worker-id>, text: "<brief autossuficiente da tarefa>")
 pane_wait_idle(paneId: <worker-id>, timeoutMs: 300000)
 pane_read(paneId: <worker-id>, lastN: 200)
 ```
 
-The worker has no context from your session. Brief it like a colleague who just walked in: goal, input files, expected output, save location, constraints.
+O worker não tem contexto da tua sessão. Faz o brief como se fosse um colega que acabou de entrar na sala: objetivo, ficheiros de entrada, output esperado, onde guardar, restrições.
 
-**Check for the worker before spawning a new pane.** Call `pane_list()` first — the orchestrator pane object has a `squadOrchestratorWorkerId` field pointing directly to the right pane.
+**Verifica se o worker já existe antes de lançar um novo painel.** Chama `pane_list()` primeiro — o objeto do painel orquestrador tem um campo `squadOrchestratorWorkerId` que aponta diretamente para o painel certo.
 
 ---
 
-### Pattern B: Parallel Fan-Out
+### Padrão B: Fan-Out em Paralelo
 
-When work splits into N independent subtasks, spawn N panes and write to all of them in **one message turn**. Writing sequentially (one pane per turn) eliminates the parallelism.
+Quando o trabalho se divide em N subtarefas independentes, lança N painéis e escreve para todos eles na **mesma turn**. Escrever sequencialmente (um painel por turn) elimina o paralelismo.
 
 ```
-# Turn 1 — spawn and write in the same turn (concurrent execution starts immediately)
+# Turn 1 — lançar e escrever na mesma turn (execução concorrente começa imediatamente)
 a = pane_spawn(model: "claude-sonnet-4-6")
 b = pane_spawn(model: "claude-sonnet-4-6")
-pane_write(a, "<task A brief>")
-pane_write(b, "<task B brief>")
+pane_write(a, "<brief da tarefa A>")
+pane_write(b, "<brief da tarefa B>")
 
-# Turn 2 — wait for both
+# Turn 2 — esperar por ambos
 pane_wait_idle(a, timeoutMs: 300000)
 pane_wait_idle(b, timeoutMs: 300000)
 
-# Turn 3 — read both
+# Turn 3 — ler ambos
 pane_read(a, lastN: 200)
 pane_read(b, lastN: 200)
 ```
 
-For very large outputs, have sub-panes save to files and read those with the standard `Read` tool — the pane buffer is bounded at ~1000 lines.
+Para outputs muito grandes, pede aos subpainéis que guardem em ficheiros e lê esses ficheiros com a ferramenta `Read` padrão — o buffer do painel tem limite de ~1000 linhas.
 
 ---
 
-### Pattern C: Multi-Model Squad
+### Padrão C: Esquadrão Multi-Modelo
 
-Different models for different cognitive jobs in the same task. For example: Opus for architectural critique (slow, deep reasoning), Sonnet for implementation (fast, execution-oriented), Gemini for fresh web data.
+Modelos diferentes para trabalhos cognitivos diferentes na mesma tarefa. Por exemplo: Opus para crítica arquitetural (lento, raciocínio profundo), Sonnet para implementação (rápido, orientado à execução), Gemini para dados frescos da web.
 
-**Always call `pane_list_providers()` first.** Provider IDs are machine-local — they vary between installs. Passing an unknown ID causes an error.
+**Chama sempre `pane_list_providers()` primeiro.** Os IDs dos providers são locais à máquina — variam entre instalações. Passar um ID desconhecido dá erro.
 
 ```
 providers = pane_list_providers()
-# verify that gemini-cli, codex-cli, etc. are present and note their exact IDs
+# verifica que gemini-cli, codex-cli, etc. estão presentes e anota os IDs exatos
 
 opus    = pane_spawn(model: "claude-opus-4-7")
 gemini  = pane_spawn(providerId: "gemini-cli", model: "gemini-2.5-flash")
@@ -127,158 +127,158 @@ mimo    = pane_spawn(providerId: "mimo-FxzXvc", model: "mimo-v2.5-pro")
 
 ---
 
-## Providers and Model Selection
+## Providers e Seleção de Modelos
 
-This install ships four providers. IDs below are machine-specific — always verify with `pane_list_providers()` at runtime.
+Esta instalação inclui quatro providers. Os IDs abaixo são específicos desta máquina — verifica sempre com `pane_list_providers()` em tempo de execução.
 
-| Provider ID | Label | Models |
-|-------------|-------|--------|
-| `claude-oauth` | Claude Code (default) | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
+| Provider ID | Label | Modelos |
+|-------------|-------|---------|
+| `claude-oauth` | Claude Code (predefinido) | `claude-opus-4-7`, `claude-sonnet-4-6`, `claude-haiku-4-5` |
 | `gemini-cli` | Gemini CLI | `gemini-2.5-flash`, `gemini-2.5-flash-lite`, `gemini-3-flash-preview` |
 | `codex-cli` | Codex CLI | `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.3-codex`, `gpt-5.2` |
 | `mimo-FxzXvc` | MIMO Token Plan SGP | `mimo-v2.5-pro`, `mimo-v2.5`, `mimo-v2-pro`, `mimo-v2-omni` |
 
-### When to reach for which model
+### Quando usar cada modelo
 
-| Task | Recommended model |
-|------|-------------------|
-| Architecture decisions, security review, hard reasoning | **Claude Opus 4.7** |
-| Feature implementation, multi-file refactors, tests | **Claude Sonnet 4.6** |
-| Doc writing, mechanical transformations, log analysis | **Claude Haiku 4.5** |
-| Web search, fresh facts, stylistic second opinion | **Gemini 2.5 Flash** |
-| Algorithmic code, third perspective in brainstorms | **Codex GPT-5.4** |
-| Cost-bounded bulk work, many parallel low-stakes panes | **MIMO Pro** |
-| Multi-perspective brainstorm | Opus + Gemini + Codex together |
+| Tarefa | Modelo recomendado |
+|--------|--------------------|
+| Decisões de arquitetura, revisão de segurança, raciocínio complexo | **Claude Opus 4.7** |
+| Implementação de funcionalidades, refactors multi-ficheiro, testes | **Claude Sonnet 4.6** |
+| Escrita de documentação, transformações mecânicas, análise de logs | **Claude Haiku 4.5** |
+| Pesquisa na web, informação recente, segunda opinião estilística | **Gemini 2.5 Flash** |
+| Código algorítmico, terceira perspetiva em brainstorms | **Codex GPT-5.4** |
+| Trabalho em massa com orçamento de tokens limitado | **MIMO Pro** |
+| Brainstorm multi-perspetiva | Opus + Gemini + Codex em conjunto |
 
-**Pitfalls:**
-- Don't use Opus for everything "just to be safe" — it's slow and expensive. Sonnet handles most execution work just as well.
-- Don't use Haiku for ambiguous tasks — it loses nuance on complex reasoning.
-- Don't treat MIMO as a Claude drop-in for critical work — it's anthropic-compatible but not identical.
+**Erros comuns:**
+- Não uses Opus para tudo "por precaução" — é lento e caro. O Sonnet faz a maioria do trabalho de execução igualmente bem.
+- Não uses Haiku para tarefas ambíguas — perde nuance em raciocínio complexo.
+- Não trates o MIMO como substituto direto do Claude em trabalho crítico — é compatível mas não idêntico.
 
-Full selection guide in [`references/providers.md`](references/providers.md).
+Guia completo em [`references/providers.md`](references/providers.md).
 
 ---
 
-## todo_manager: Milestone Tracking
+## todo_manager: Acompanhamento de Marcos
 
-Use `todo_manager` when a project has **3 or more distinct, milestone-level tasks**. Skip it for single-page builds, bug fixes, or conversational questions — it's overhead for trivial requests.
+Usa `todo_manager` quando um projeto tem **3 ou mais tarefas distintas a nível de milestone**. Não o uses para builds simples, correções de bugs ou perguntas conversacionais — é overhead desnecessário para pedidos triviais.
 
 ```
-# Set up the visible task list (max 7 tasks; first becomes active immediately)
+# Configura a lista de tarefas visível (máx. 7 tarefas; a primeira fica ativa imediatamente)
 todo_manager(action: "set_tasks", tasks: [
-  "Update DB schema",
-  "Refactor API routes",
-  "Update webhook handlers",
-  "Update frontend",
-  "Run end-to-end tests"
+  "Atualizar schema da base de dados",
+  "Refatorar rotas da API",
+  "Atualizar handlers de webhooks",
+  "Atualizar frontend",
+  "Executar testes end-to-end"
 ])
 
-# Advance the list as each milestone completes — call immediately, don't batch
-todo_manager(action: "move_to_task", moveToTask: "Refactor API routes")
+# Avança a lista assim que cada marco termina — chama imediatamente, não acumules
+todo_manager(action: "move_to_task", moveToTask: "Refatorar rotas da API")
 
-# Signal project completion
+# Sinaliza o fim do projeto
 todo_manager(action: "mark_all_done")
 ```
 
-Live progress is the feature. If you batch `move_to_task` calls at the end, the user sees nothing update until the very last moment.
+O progresso em tempo real é a funcionalidade. Se acumulares as chamadas a `move_to_task` e as fizeres todas no final, o utilizador não vê nada atualizar até ao último momento.
 
-**Use milestone-level granularity.** "Wire up signup form" reads as progress. "Add import statement" reads as noise.
+**Usa granularidade de milestone.** "Integrar formulário de registo" lê-se como progresso. "Adicionar import statement" lê-se como ruído.
 
 ---
 
-## Agent Squads
+## Esquadrões de Agentes
 
-This install ships 8 specialist squads totaling ~100 pre-configured agents. Each squad has a chief that triages and routes to the right specialist.
+Esta instalação inclui 8 esquadrões especialistas com ~100 agentes pré-configurados no total. Cada esquadrão tem um chefe que faz triagem e encaminha para o especialista certo.
 
-| Squad | Chief | Agents | Domain |
-|-------|-------|--------|--------|
-| advisory-board | `@board-chair` | 11 | Strategic thinking, executive decisions |
-| brand-squad | `@brand-chief` | 15 | Brand strategy and identity |
-| claude-code-mastery | `@claude-mastery-chief` | 8 | Claude Code: hooks, skills, MCP, agent teams |
-| copy-squad | `@copy-chief` | 23 | Copywriting — 22 legendary copywriters |
-| cybersecurity | `@cyber-chief` | 15 | Offensive and defensive security operations |
-| data-squad | `@data-chief` | 7 | Analytics, CLV, growth, audience |
-| design-squad | `@design-chief` | 8 | Design ops and UX |
-| hormozi-squad | `@hormozi-chief` | 16 | Alex Hormozi business scaling frameworks |
+| Esquadrão | Chefe | Agentes | Domínio |
+|-----------|-------|---------|---------|
+| advisory-board | `@board-chair` | 11 | Pensamento estratégico, decisões executivas |
+| brand-squad | `@brand-chief` | 15 | Estratégia e identidade de marca |
+| claude-code-mastery | `@claude-mastery-chief` | 8 | Claude Code: hooks, skills, MCP, equipas de agentes |
+| copy-squad | `@copy-chief` | 23 | Copywriting — 22 copywriters lendários |
+| cybersecurity | `@cyber-chief` | 15 | Operações de segurança ofensiva e defensiva |
+| data-squad | `@data-chief` | 7 | Analytics, CLV, crescimento, audiências |
+| design-squad | `@design-chief` | 8 | Operações de design e UX |
+| hormozi-squad | `@hormozi-chief` | 16 | Frameworks de escala de negócio de Alex Hormozi |
 
-### Activation pattern
+### Padrão de ativação
 
 ```
-@<squad>-chief              # activate the chief — starts triage
-*diagnose                   # ask the chief to triage your problem
-*<workflow-name>            # run a named squad workflow
-@<squad>-chief:<agent-name> # talk directly to a specific agent
+@<esquadrão>-chief              # ativa o chefe — inicia triagem
+*diagnose                       # pede ao chefe para fazer triagem do teu problema
+*<nome-do-workflow>             # executa um workflow nomeado do esquadrão
+@<esquadrão>-chief:<agente>     # fala diretamente com um agente específico
 ```
 
-Examples:
+Exemplos:
 ```
-@brand-chief                          # activate brand squad
-*brand-creation                       # run full brand creation workflow
-@copy-chief:direct-response-writer    # talk to the direct-response specialist
+@brand-chief                          # ativa o esquadrão de marca
+*brand-creation                       # executa o workflow completo de criação de marca
+@copy-chief:direct-response-writer    # fala com o especialista em direct response
 ```
 
-### Squad vs. solo pane
+### Esquadrão vs. painel individual
 
-| Situation | Use |
-|-----------|-----|
-| Domain matches one of the 8 squads | Activate the squad chief |
-| Technical execution (build feature, fix bug) | Spawn a regular pane with `pane_spawn` |
-| Cross-domain problem | Solo pane or compose multiple chiefs in parallel |
+| Situação | Usa |
+|----------|-----|
+| O domínio corresponde a um dos 8 esquadrões | Ativa o chefe do esquadrão |
+| Execução técnica (construir funcionalidade, corrigir bug) | Lança um painel normal com `pane_spawn` |
+| Problema cross-domínio | Painel individual ou vários chefes em paralelo |
 
-Squads are knowledge structures — they shape how Claude responds with domain expertise, frameworks, and workflows. Spawned panes are execution capacity — they do work in parallel. The two are orthogonal: you can spawn a pane and activate a squad inside it.
+Os esquadrões são estruturas de conhecimento — moldam a forma como o Claude responde com expertise de domínio, frameworks e workflows. Os painéis lançados são capacidade de execução — fazem trabalho em paralelo. São ortogonais: podes lançar um painel e ativar um esquadrão dentro dele.
 
-### Combining squads with panes
+### Combinar esquadrões com painéis
 
 ```
 brand_pane = pane_spawn(model: "claude-opus-4-7")
 copy_pane  = pane_spawn(model: "claude-sonnet-4-6")
 
-pane_write(brand_pane, "@brand-chief\n*diagnose\nWe're launching SwipeScale to B2B sales...")
-pane_write(copy_pane,  "@copy-chief\n*diagnose\nNeed landing page copy for SwipeScale...")
+pane_write(brand_pane, "@brand-chief\n*diagnose\nEstamos a lançar o SwipeScale para equipas de vendas B2B...")
+pane_write(copy_pane,  "@copy-chief\n*diagnose\nPrecisamos de copy para a landing page do SwipeScale...")
 ```
 
-Each pane runs its squad independently. The orchestrator collects outputs and synthesizes.
+Cada painel executa o seu esquadrão de forma independente. O orquestrador recolhe os outputs e sintetiza.
 
-Full squad reference in [`references/squads.md`](references/squads.md).
-
----
-
-## Recipes
-
-Four worked end-to-end examples are documented in [`references/recipes.md`](references/recipes.md):
-
-| Recipe | When to use |
-|--------|-------------|
-| **Two-pane code review squad** | Critique (Opus) + remediation (Sonnet) in parallel |
-| **Doc + implementation in parallel** | Both depend on the same spec, neither blocks the other |
-| **Multi-perspective brainstorm** | Same prompt through Opus, Gemini, and Codex for genuine divergence |
-| **Long migration with todo_manager** | Sequential milestones, worker pane does the heavy lifting, orchestrator narrates progress |
+Referência completa dos esquadrões em [`references/squads.md`](references/squads.md).
 
 ---
 
-## Common Mistakes
+## Receitas
 
-1. **Reading before waiting** — `pane_read` on a running pane returns partial output. Always call `pane_wait_idle` first.
-2. **Sequential fan-out** — multiple `pane_write` calls must happen in one turn, not one per turn. Sequential writes eliminate the parallelism.
-3. **Vague briefs to sub-panes** — sub-panes have zero context from the current conversation. Spell out the goal, input files, expected output format, and save location.
-4. **Spawning when a worker exists** — call `pane_list()` first. Reuse the idle worker pane before spawning a new one.
-5. **Hardcoding provider IDs** — IDs like `mimo-FxzXvc` are machine-local and will be different on other installs. Always call `pane_list_providers()` at runtime.
-6. **Micro-step todos** — `todo_manager` is for 3–7 milestone-level deliverables, not every individual action.
-7. **Using todo_manager for trivial requests** — for a single-task job, the todo list is overhead.
-8. **Batching `move_to_task` calls** — call it immediately when each milestone completes. The user watches the list update in real time.
+Quatro exemplos práticos do início ao fim estão documentados em [`references/recipes.md`](references/recipes.md):
 
----
-
-## When NOT to Orchestrate
-
-- Pure knowledge questions ("What is X?", "Explain Y") — answer inline
-- Bug fixes, refactors, single-file edits — no parallelism benefit
-- Anything a two-minute inline response handles cleanly — delegating would be slower
-
-If in doubt, just do the task. Orchestration is a tool for specific shapes of work, not a default mode.
+| Receita | Quando usar |
+|---------|-------------|
+| **Esquadrão de code review com dois painéis** | Crítica (Opus) + remediação (Sonnet) em paralelo |
+| **Documentação + implementação em paralelo** | Ambos dependem da mesma spec, nenhum bloqueia o outro |
+| **Brainstorm multi-perspetiva** | Mesmo prompt em Opus, Gemini e Codex para divergência genuína |
+| **Migração longa com todo_manager** | Marcos sequenciais, worker faz o trabalho pesado, orquestrador narra o progresso |
 
 ---
 
-## Worker-Pane Caveat
+## Erros Comuns
 
-You may be the orchestrator, or you may be a worker pane that another orchestrator is delegating to. If your initial prompt looks like a self-contained task with no orchestrator system framing, you're a worker — execute the task directly without spawning more panes.
+1. **Ler antes de esperar** — `pane_read` num painel a correr devolve output parcial. Chama sempre `pane_wait_idle` primeiro.
+2. **Fan-out sequencial** — múltiplas chamadas a `pane_write` têm de acontecer na mesma turn, não uma por turn. Writes sequenciais eliminam o paralelismo.
+3. **Briefs vagos para subpainéis** — os subpainéis não têm contexto da conversa atual. Especifica o objetivo, ficheiros de entrada, formato do output esperado e onde guardar.
+4. **Lançar quando um worker já existe** — chama `pane_list()` primeiro. Reutiliza o painel de trabalho inativo antes de lançar um novo.
+5. **IDs de providers hardcoded** — IDs como `mimo-FxzXvc` são locais à máquina e serão diferentes noutras instalações. Chama sempre `pane_list_providers()` em tempo de execução.
+6. **Todos em micro-passos** — `todo_manager` é para 3–7 deliverables a nível de milestone, não para cada ação individual.
+7. **Usar todo_manager para pedidos triviais** — para uma tarefa simples, a lista de tarefas é overhead desnecessário.
+8. **Acumular chamadas a `move_to_task`** — chama imediatamente quando cada milestone termina. O utilizador vê a lista atualizar em tempo real.
+
+---
+
+## Quando NÃO Orquestrar
+
+- Perguntas de conhecimento puro ("O que é X?", "Explica Y") — responde inline
+- Correções de bugs, refactors, edições de ficheiro único — sem benefício de paralelismo
+- Qualquer coisa que uma resposta inline de dois minutos resolve — delegar seria mais lento
+
+Em caso de dúvida, faz a tarefa diretamente. A orquestração é uma ferramenta para formas específicas de trabalho, não um modo predefinido.
+
+---
+
+## Aviso sobre o Painel de Trabalho
+
+Podes ser o orquestrador, ou podes ser um painel de trabalho para o qual outro orquestrador está a delegar. Se o teu prompt inicial parece uma tarefa autossuficiente sem enquadramento de orquestrador no system prompt, és um worker — executa a tarefa diretamente sem lançar mais painéis.
